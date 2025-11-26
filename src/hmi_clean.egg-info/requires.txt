@@ -1,0 +1,6 @@
+pyshtools
+sunpy
+matplotlib
+astropy
+numpy
+argparse

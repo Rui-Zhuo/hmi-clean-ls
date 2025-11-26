@@ -2,7 +2,8 @@
 from pyshtools import legendre as pleg
 from sunpy.coordinates import frames
 from sunpy.map import Map as spMap
-from .globalvars import DopplerVars
+# from .globalvars import DopplerVars
+from globalvars import DopplerVars
 import matplotlib.pyplot as plt
 from astropy.io import fits
 import astropy.units as u
@@ -122,12 +123,14 @@ def inv_SVD(A, svdlim):
 class HmiClass():
     """Class to handle mi maps and their coordinates"""
     # {{{ def __init__(self, hmi_data_dir, hmi_file, day):
-    def __init__(self, hmi_data_dir, hmi_file, day):
+    def __init__(self, hmi_data_dir, hmi_file, day, gvar):
         print(f"Loading {hmi_file}")
         self.day = day
         self.rsun_rel = 200
+        self.gvar = gvar
 
-        self.fname = hmi_data_dir + hmi_file
+        # self.fname = hmi_data_dir + hmi_file # Edited by Rui, 2025/11/13
+        self.fname = hmi_file # Edited by Rui, 2025/11/13
         data, header = fits.getdata(self.fname, header=True)
         if sum([key=='CUNIT1' for key in header.keys()])==0: header['CUNIT1'] = 'arcsec'
         if sum([key=='CUNIT2' for key in header.keys()])==0: header['CUNIT2'] = 'arcsec'
@@ -139,8 +142,11 @@ class HmiClass():
         x, y = np.meshgrid(*[np.arange(v.value) for v in hmi_map.dimensions])\
             * u.pix
         hpc_coords = hmi_map.pixel_to_world(x, y)
-        r = np.sqrt(hpc_coords.Tx ** 2 +
-                    hpc_coords.Ty ** 2) / hmi_map.rsun_obs
+        # r = np.sqrt(hpc_coords.Tx ** 2 +
+        #             hpc_coords.Ty ** 2) / hmi_map.rsun_obs # Edited by Rui, 2025/11/13
+        r = np.sqrt(hpc_coords.cartesian.x **2 + 
+                    hpc_coords.cartesian.y** 2) / hmi_map.rsun_obs # Edited by Rui, 2025/11/13
+        r = r.value # Edited by Rui, 2025/11/13
         rcrop = 0.95
         mask_r = r > rcrop
 
@@ -171,10 +177,10 @@ class HmiClass():
         ph[psi < 0] = psi[psi < 0] + (2*pi)*u.rad
         ph[~(psi < 0)] = psi[~(psi < 0)]
         th = np.arcsin(rho/self.rsun_meters)
-        print(f"Writing {gvar.outdir}thDC_{gvar.year}_{self.day:03d}.npy")
-        np.save(f"{gvar.outdir}thDC_{gvar.year}_{self.day:03d}.npy", th.value)
-        print(f"Writing {gvar.outdir}phDC_{gvar.year}_{self.day:03d}.npy")
-        np.save(f"{gvar.outdir}phDC_{gvar.year}_{self.day:03d}.npy", ph.value)
+        print(f"Writing {self.gvar.outdir}thDC_{self.gvar.year}_{self.day:03d}.npy")
+        np.save(f"{self.gvar.outdir}thDC_{self.gvar.year}_{self.day:03d}.npy", th.value)
+        print(f"Writing {self.gvar.outdir}phDC_{self.gvar.year}_{self.day:03d}.npy")
+        np.save(f"{self.gvar.outdir}phDC_{self.gvar.year}_{self.day:03d}.npy", ph.value)
         return None
     # }}} save_theta_phi_DC(self)
 
@@ -183,18 +189,18 @@ class HmiClass():
         """Saves the coordinates of HMI map"""
         lat = (self.lat + 90*u.deg).value
         lon = (self.lon).value
-        print(f"Writing {gvar.outdir}th_{gvar.year}_{self.day:03d}.npy")
-        np.save(f"{gvar.outdir}th_{gvar.year}_{self.day:03d}.npy", lat)
-        print(f"Writing {gvar.outdir}ph_{gvar.year}_{self.day:03d}.npy")
-        np.save(f"{gvar.outdir}ph_{gvar.year}_{self.day:03d}.npy", lon)
+        print(f"Writing {self.gvar.outdir}th_{self.gvar.year}_{self.day:03d}.npy")
+        np.save(f"{self.gvar.outdir}th_{self.gvar.year}_{self.day:03d}.npy", lat)
+        print(f"Writing {self.gvar.outdir}ph_{self.gvar.year}_{self.day:03d}.npy")
+        # np.save(f"{self.gvar.outdir}ph_{self.gvar.year}_{self.day:03d}.npy", lon)
         return None
     # }}} save_theta_phi(self)
 
     # {{{ save_map_data(self)
     def save_map_data(self):
         """Saves image data of HMI map"""
-        print(f"Writing {gvar.outdir}residual_{gvar.year}_{self.day:03d}.npy")
-        np.save(f"{gvar.outdir}residual_{gvar.year}_{self.day:03d}.npy",
+        print(f"Writing {self.gvar.outdir}residual_{self.gvar.year}_{self.day:03d}.npy")
+        np.save(f"{self.gvar.outdir}residual_{self.gvar.year}_{self.day:03d}.npy",
                 self.map_data)
         return None
     # }}} save_map_data(self)
@@ -264,7 +270,8 @@ class HmiClass():
             vr2 = -self.sat_VW*ssig*schi
             vr3 = -self.sat_VN*ssig*cchi
             vC1 = vr1 + vr2 + vr3
-            velCorr = np.zeros((4096, 4096))
+            # velCorr = np.zeros((4096, 4096)) # Edited by Rui, 2025/11/13
+            velCorr = np.zeros_like(self.map_data)  # Edited by Rui, 2025/11/13
             velCorr[self.mask_nan] = vC1[self.mask_nan]
             velCorr[~self.mask_nan] = np.nan
 
@@ -330,6 +337,7 @@ class HmiClass():
 
         Ainv = inv_SVD(A, 1e5)
         fit_params = Ainv.dot(RHS)
+        # fit_params[5:] = np.array([0,0,0,0,0,0])  # Edited by Rui, 2025/11/13
         print(f"Rotation = {fit_params[:3]} m/s,"
               + f"\nMeridional Circ = {fit_params[3:5]} m/s,"
               + f"\nLimb Shift = {fit_params[5:]} m/s\n")

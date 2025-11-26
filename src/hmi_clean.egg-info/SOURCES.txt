@@ -1,0 +1,11 @@
+LICENSE.md
+MANIFEST.in
+README.md
+setup.cfg
+setup.py
+src/hmi_clean.egg-info/PKG-INFO
+src/hmi_clean.egg-info/SOURCES.txt
+src/hmi_clean.egg-info/dependency_links.txt
+src/hmi_clean.egg-info/not-zip-safe
+src/hmi_clean.egg-info/requires.txt
+src/hmi_clean.egg-info/top_level.txt
